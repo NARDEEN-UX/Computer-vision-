@@ -61,6 +61,7 @@ export default function App() {
   const [workingUrl, setWorkingUrl] = useState('')
   const [workingLabel, setWorkingLabel] = useState('Original image')
   const [sourceMode, setSourceMode] = useState('original')
+  const [selectedCategory, setSelectedCategory] = useState('noise')
   const [operationKey, setOperationKey] = useState('noise/gaussian')
   const [values, setValues] = useState(DEFAULTS['noise/gaussian'])
   const [result, setResult] = useState(null)
@@ -68,6 +69,7 @@ export default function App() {
   const [error, setError] = useState('')
 
   const operation = useMemo(() => OPERATIONS.find((item) => operationId(item) === operationKey), [operationKey])
+  const activeGroup = useMemo(() => OPERATION_GROUPS.find((group) => group.key === selectedCategory) ?? OPERATION_GROUPS[0], [selectedCategory])
   const selectedSource = sourceMode === 'latest' && workingFile ? workingFile : file
   const selectedSourceLabel = sourceMode === 'latest' && workingFile ? workingLabel : 'Original image'
 
@@ -80,7 +82,7 @@ export default function App() {
 
   function chooseOperation(nextOperation) {
     const nextKey = operationId(nextOperation)
-    setOperationKey(nextKey); setValues({ ...DEFAULTS[nextKey] }); setError('')
+    setSelectedCategory(nextOperation.group); setOperationKey(nextKey); setValues({ ...DEFAULTS[nextKey] }); setError('')
   }
 
   function updateValue(key, value) {
@@ -111,7 +113,10 @@ export default function App() {
         <div className="step-heading"><span className="step-number">01</span><div><span className="section-label">Input</span><h2>Image source</h2></div></div>
         <ImageUploader file={file} onChange={chooseFile} />
         <div className="step-heading"><span className="step-number">02</span><div><span className="section-label">Operation</span><h2>Select a method</h2></div></div>
-        <div className="operation-picker">{OPERATION_GROUPS.map((group) => <section className="operation-group" key={group.key}><div className="operation-group-heading"><div><span>{group.label}</span><small>{group.note}</small></div><span className="method-count">{group.operations.length} methods</span></div><div className="operation-list">{group.operations.map((item) => <button className={operationId(item) === operationKey ? 'operation-option selected' : 'operation-option'} key={operationId(item)} onClick={() => chooseOperation(item)} type="button"><span className="operation-mark" /><span>{item.label}</span><span className="operation-arrow">→</span></button>)}</div></section>)}</div>
+        <div className="operation-picker">
+          <label className="category-field" htmlFor="operation-category"><span>Category</span><select id="operation-category" value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>{OPERATION_GROUPS.map((group) => <option value={group.key} key={group.key}>{group.label}</option>)}</select></label>
+          <div className="operation-list">{activeGroup.operations.map((item) => <button className={operationId(item) === operationKey ? 'operation-option selected' : 'operation-option'} key={operationId(item)} onClick={() => chooseOperation(item)} type="button"><span className="operation-mark" /><span>{item.label}</span><span className="operation-arrow">→</span></button>)}</div>
+        </div>
         <div className="step-heading parameter-step"><span className="step-number">03</span><div><span className="section-label">Parameters</span><h2>{operation.label}</h2></div></div>
         <p className="operation-description">{operation.description}</p>
         <ParameterPanel operation={operation} values={values} onChange={updateValue} />
