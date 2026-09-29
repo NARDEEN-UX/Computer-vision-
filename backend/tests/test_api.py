@@ -41,3 +41,28 @@ def test_api_rejects_invalid_parameters() -> None:
     )
     assert response.status_code == 422
     assert "Kernel size" in response.json()["detail"]
+
+
+def test_edge_api_returns_grayscale_metadata_and_implementation() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/api/edge/sobel",
+        files={"image": _image_file()},
+        data={"direction": "magnitude"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metadata"]["channels"] == 1
+    assert body["metadata"]["color_convention"] == "grayscale"
+    assert body["metadata"]["implementation"] == "Custom NumPy"
+
+
+def test_canny_api_rejects_invalid_threshold_order() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/api/edge/canny",
+        files={"image": _image_file()},
+        data={"lower_threshold": "200", "upper_threshold": "100"},
+    )
+    assert response.status_code == 422
+    assert "less than upper" in response.json()["detail"]
