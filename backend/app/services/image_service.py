@@ -27,7 +27,12 @@ async def read_rgb_image(upload: UploadFile) -> np.ndarray:
 
 def encode_png(image: np.ndarray) -> str:
     buffer = BytesIO()
-    Image.fromarray(image, mode="RGB").save(buffer, format="PNG")
+    array = np.asarray(image)
+    if array.ndim == 2:
+        pil_image = Image.fromarray(array.astype(np.uint8), mode="L")
+    else:
+        pil_image = Image.fromarray(array.astype(np.uint8), mode="RGB")
+    pil_image.save(buffer, format="PNG")
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
@@ -36,6 +41,7 @@ async def run_image_operation(
     upload: UploadFile,
     operation: Callable[..., np.ndarray],
     parameters: dict[str, Any],
+    implementation: str = "Custom NumPy",
 ) -> dict[str, Any]:
     image = await read_rgb_image(upload)
     started = time.perf_counter()
@@ -44,14 +50,17 @@ async def run_image_operation(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     elapsed_ms = (time.perf_counter() - started) * 1000
+    processed_array = np.asarray(processed)
+    is_grayscale = processed_array.ndim == 2
     return {
-        "image": encode_png(processed),
+        "image": encode_png(processed_array),
         "processing_time_ms": round(elapsed_ms, 3),
         "parameters": parameters,
         "metadata": {
             "width": int(image.shape[1]),
             "height": int(image.shape[0]),
-            "channels": 3,
-            "color_convention": "RGB",
+            "channels": 1 if is_grayscale else 3,
+            "color_convention": "grayscale" if is_grayscale else "RGB",
+            "implementation": implementation,
         },
     }

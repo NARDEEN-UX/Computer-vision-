@@ -18,6 +18,14 @@ const OPERATION_GROUPS = [
       { group: 'filters', name: 'median', label: 'Median Filter', description: 'Replaces each pixel with the median value of its local neighborhood.' },
     ],
   },
+  {
+    key: 'edge', label: 'Edge Detection', note: 'Gradient and contour operators', operations: [
+      { group: 'edge', name: 'sobel', label: 'Sobel', description: 'Estimates horizontal and vertical intensity change using weighted 3×3 kernels.' },
+      { group: 'edge', name: 'roberts', label: 'Roberts', description: 'Estimates diagonal intensity change using compact 2×2 kernels.' },
+      { group: 'edge', name: 'prewitt', label: 'Prewitt', description: 'Estimates horizontal and vertical intensity change using uniform 3×3 kernels.' },
+      { group: 'edge', name: 'canny', label: 'Canny', description: 'Detects contours with the OpenCV Canny implementation and two thresholds.' },
+    ],
+  },
 ]
 
 const OPERATIONS = OPERATION_GROUPS.flatMap((group) => group.operations)
@@ -27,6 +35,10 @@ const DEFAULTS = {
   'filters/average': { kernel_size: 3 },
   'filters/gaussian': { kernel_size: 3, sigma: 1 },
   'filters/median': { kernel_size: 3 },
+  'edge/sobel': { direction: 'magnitude' },
+  'edge/roberts': { direction: 'magnitude' },
+  'edge/prewitt': { direction: 'magnitude' },
+  'edge/canny': { lower_threshold: 50, upper_threshold: 150 },
 }
 
 function operationId(operation) { return `${operation.group}/${operation.name}` }
@@ -38,6 +50,7 @@ function validate(operation, values) {
   if (operation.name === 'salt-pepper' && (Number(values.salt_probability) < 0 || Number(values.salt_probability) > 1)) return 'Salt probability must be between 0 and 1.'
   if (operation.group === 'noise' && values.seed !== '' && !Number.isInteger(Number(values.seed))) return 'Seed must be an integer.'
   if (operation.group === 'filters' && operation.name === 'gaussian' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
+  if (operation.group === 'edge' && operation.name === 'canny' && (Number(values.lower_threshold) < 0 || Number(values.lower_threshold) >= Number(values.upper_threshold))) return 'Lower threshold must be less than upper threshold.'
   return ''
 }
 
@@ -70,7 +83,10 @@ export default function App() {
     setOperationKey(nextKey); setValues({ ...DEFAULTS[nextKey] }); setError('')
   }
 
-  function updateValue(key, value) { setValues((current) => ({ ...current, [key]: number(value) })) }
+  function updateValue(key, value) {
+    const numericParameter = key !== 'direction'
+    setValues((current) => ({ ...current, [key]: numericParameter ? number(value) : value }))
+  }
 
   async function apply() {
     setError('')
@@ -89,7 +105,7 @@ export default function App() {
   }
 
   return <main className="page-shell">
-    <header className="hero"><div className="hero-copy"><span className="eyebrow">Course workbench</span><h1>Image Processing Laboratory</h1><p className="hero-subtitle">Computer Vision — Task 1</p><p className="hero-description">Interactive experimentation with custom image-processing algorithms.</p></div><div className="scope-chip"><span>Laboratory scope</span><b>Noise & spatial filtering</b></div></header>
+    <header className="hero"><div className="hero-copy"><span className="eyebrow">Course workbench</span><h1>Image Processing Laboratory</h1><p className="hero-subtitle">Computer Vision — Task 1</p><p className="hero-description">Interactive experimentation with custom image-processing algorithms.</p></div><div className="scope-chip"><span>Laboratory scope</span><b>Noise · filtering · edges</b></div></header>
     <section className="lab-layout">
       <aside className="control-panel">
         <div className="step-heading"><span className="step-number">01</span><div><span className="section-label">Input</span><h2>Image source</h2></div></div>

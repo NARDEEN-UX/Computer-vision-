@@ -20,17 +20,19 @@ def _validate_kernel(kernel: np.ndarray) -> np.ndarray:
     array = np.asarray(kernel, dtype=np.float32)
     if array.ndim != 2 or array.size == 0:
         raise ValueError("Kernel must be a non-empty 2-D array.")
-    if array.shape[0] % 2 == 0 or array.shape[1] % 2 == 0:
-        raise ValueError("Kernel dimensions must be positive odd numbers.")
     if not np.all(np.isfinite(array)):
         raise ValueError("Kernel values must be finite.")
     return array
 
 
-def _pad(image: np.ndarray, pad_h: int, pad_w: int) -> np.ndarray:
-    """Use reflection at boundaries; edge padding is a safe 1-pixel fallback."""
+def _pad(image: np.ndarray, pad_before: tuple[int, int], pad_after: tuple[int, int]) -> np.ndarray:
+    """Use reflection at boundaries; edge padding is a safe tiny-image fallback."""
     mode = "reflect" if image.shape[0] > 1 and image.shape[1] > 1 else "edge"
-    return np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode=mode)
+    return np.pad(
+        image,
+        ((pad_before[0], pad_after[0]), (pad_before[1], pad_after[1])),
+        mode=mode,
+    )
 
 
 def conv2d(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
@@ -38,8 +40,10 @@ def conv2d(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
 
     The kernel is flipped vertically and horizontally, so this is mathematical
     convolution rather than cross-correlation. The output keeps the input size.
-    Reflection padding avoids introducing artificial black borders. Filter
-    kernels in this project are odd-sized, which gives an unambiguous centre.
+    Reflection padding avoids introducing artificial black borders. Odd kernels
+    are centred symmetrically. Even kernels use a top-left anchor with the
+    remaining padding placed on the bottom and right; this supports the 2x2
+    Roberts operator while preserving the input dimensions.
     No clipping or uint8 conversion is performed here; callers decide how to
     post-process the numerical result.
     """
@@ -47,10 +51,13 @@ def conv2d(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     kernel_array = _validate_kernel(kernel)
     flipped_kernel = np.flip(kernel_array, axis=(0, 1))
     kh, kw = flipped_kernel.shape
-    pad_h, pad_w = kh // 2, kw // 2
+    pad_top = kh // 2 if kh % 2 else kh // 2 - 1
+    pad_left = kw // 2 if kw % 2 else kw // 2 - 1
+    pad_bottom = kh - 1 - pad_top
+    pad_right = kw - 1 - pad_left
 
     def convolve_channel(channel: np.ndarray) -> np.ndarray:
-        padded = _pad(channel, pad_h, pad_w)
+        padded = _pad(channel, (pad_top, pad_left), (pad_bottom, pad_right))
         output = np.zeros(channel.shape, dtype=np.float32)
         for row in range(kh):
             for col in range(kw):

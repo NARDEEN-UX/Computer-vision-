@@ -75,5 +75,5 @@ def test_invalid_parameters_are_rejected() -> None:
         salt_pepper_noise(image, density=1.1)
     with pytest.raises(ValueError, match="one of"):
         average_filter(image, kernel_size=4)
-    with pytest.raises(ValueError, match="odd"):
-        conv2d(image, np.ones((2, 2), dtype=np.float32))
+    even_result = conv2d(image, np.ones((2, 2), dtype=np.float32))
+    assert even_result.shape == image.shape
