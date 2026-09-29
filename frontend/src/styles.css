@@ -27,6 +27,9 @@ h1 { margin: 13px 0 15px; font-family: Georgia, "Times New Roman", serif; font-s
 .upload-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: #e8eee8; color: #53715c; font-size: 1.4rem; font-weight: 300; }
 .muted, small { color: #7f8a83; font-size: .74rem; }
 .operation-picker { display: grid; gap: 14px; margin-bottom: 27px; }
+.category-field { display: grid; gap: 8px; }
+.category-field > span { color: #4a5b51; font-size: .76rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.category-field select { width: 100%; padding: 11px 12px; border: 1px solid #d4d5cc; border-radius: 8px; background: #fff; color: #26372f; font-size: .84rem; font-weight: 750; outline-color: #b96534; }
 .operation-group { padding: 12px; border: 1px solid #e1ded5; border-radius: 12px; background: #fbfaf7; }
 .operation-group-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; padding: 2px 2px 10px; }
 .operation-group-heading > div > span { display: block; color: #31483c; font-size: .83rem; font-weight: 800; letter-spacing: .02em; }
