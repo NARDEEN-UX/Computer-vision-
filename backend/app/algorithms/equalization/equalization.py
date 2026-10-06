@@ -29,7 +29,10 @@ def equalize_channel(channel: np.ndarray) -> np.ndarray:
     if nonzero_cdf.size == 0 or nonzero_cdf[-1] == nonzero_cdf[0]:
         return values.astype(np.uint8, copy=True)
 
-    lookup = np.rint(cdf * (INTENSITY_LEVELS - 1))
+    cdf_min = nonzero_cdf[0]
+    lookup = np.rint(
+        ((cdf - cdf_min) / (1.0 - cdf_min)) * (INTENSITY_LEVELS - 1)
+    )
     lookup = np.clip(lookup, 0, INTENSITY_LEVELS-1).astype(np.uint8)
 
     return lookup[values]
