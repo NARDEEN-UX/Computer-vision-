@@ -36,13 +36,25 @@ def compute_distribution(histogram: np.ndarray) -> np.ndarray:
     return counts.astype(np.float64) / total
 
 
+def compute_cdf(pdf: np.ndarray) -> np.ndarray:
+    """Return the cumulative distribution function for a 256-bin PDF."""
+    probabilities = np.asarray(pdf, dtype=np.float64)
+    if probabilities.shape != (256,):
+        raise ValueError("A PDF must contain exactly 256 bins.")
+    if np.any(probabilities < 0):
+        raise ValueError("A PDF cannot contain negative probabilities.")
+    return np.cumsum(probabilities)
+
+
 def _channel_payload(channel: np.ndarray) -> dict[str, list]:
     counts = compute_histogram(channel)
     distribution = compute_distribution(counts)
+    cdf = compute_cdf(distribution)
     return {
         "intensity": INTENSITIES.copy(),
         "histogram": counts.tolist(),
         "distribution": distribution.tolist(),
+        "cdf": cdf.tolist(),
     }
 
 

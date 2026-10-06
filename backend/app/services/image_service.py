@@ -69,6 +69,7 @@ async def run_image_operation(
     operation: Callable[..., np.ndarray],
     parameters: dict[str, Any],
     implementation: str = "Custom NumPy",
+    extras: Callable[[np.ndarray, np.ndarray], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     image = await read_image(upload)
     started = time.perf_counter()
@@ -80,7 +81,7 @@ async def run_image_operation(
     processed_array = np.asarray(processed)
     input_is_grayscale = image.ndim == 2
     is_grayscale = processed_array.ndim == 2
-    return {
+    response = {
         "image": encode_png(processed_array),
         "processing_time_ms": round(elapsed_ms, 3),
         "parameters": parameters,
@@ -95,3 +96,6 @@ async def run_image_operation(
             "implementation": implementation,
         },
     }
+    if extras is not None:
+        response.update(extras(image, processed_array))
+    return response

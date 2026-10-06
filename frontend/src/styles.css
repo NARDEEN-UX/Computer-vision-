@@ -98,5 +98,6 @@ h3 { margin: 5px 0 0; color: #26372f; font-size: .96rem; font-weight: 780; overf
 .chart-axis { stroke: #87938a; stroke-width: 1; }
 .chart-grid { stroke: #e4e9e3; stroke-width: 1; }
 .chart-tick, .chart-axis-label { fill: #78857c; font-size: 10px; }
+.comparison-charts { display: grid; gap: 14px; }
 @media (max-width: 940px) { .lab-layout { grid-template-columns: 1fr; } .control-panel { order: 0; } .results-area { order: 1; } }
 @media (max-width: 620px) { .page-shell { padding: 25px 16px 40px; } .hero { align-items: start; flex-direction: column; gap: 20px; padding-bottom: 30px; } .scope-chip { width: 100%; } .image-grid { grid-template-columns: 1fr; } .control-panel { padding: 18px; } }
