@@ -7,8 +7,13 @@ const CHANNELS = {
   grayscale: { label: 'Grayscale', color: '#48575b' },
 }
 
-function Legend({ names }) {
-  return <div className="chart-legend">{names.map((name) => <span key={name}><i style={{ background: CHANNELS[name].color }} />{CHANNELS[name].label}</span>)}</div>
+function Legend({ names, visibleChannels, onToggle }) {
+  return <div className="chart-legend">{names.map((name) => {
+    const isVisible = visibleChannels.includes(name)
+    return <button className={`channel-toggle ${isVisible ? 'active' : ''}`} type="button" key={name} aria-pressed={isVisible} onClick={() => onToggle(name)}>
+      <i style={{ background: isVisible ? CHANNELS[name].color : 'transparent', borderColor: CHANNELS[name].color }} />{CHANNELS[name].label}
+    </button>
+  })}</div>
 }
 
 function formatValue(value) {
@@ -29,7 +34,7 @@ function logarithmicTicks(maximum) {
   return ticks
 }
 
-function Plot({ title, yLabel, channels, mode, scale, onScaleChange }) {
+function Plot({ title, yLabel, channels, mode, scale, onScaleChange, visibleChannels, onToggleChannel }) {
   const width = 760
   const height = 300
   const left = 72
@@ -38,19 +43,20 @@ function Plot({ title, yLabel, channels, mode, scale, onScaleChange }) {
   const bottom = 42
   const plotWidth = width - left - right
   const plotHeight = height - top - bottom
-  const names = Object.keys(channels)
+  const names = Object.keys(channels).filter((name) => visibleChannels.includes(name))
   const values = names.flatMap((name) => channels[name][mode])
   // The backend returns probabilities in [0, 1]. Distribution charts display
   // those values as percentages, while the backend data stays unchanged.
-  const displayValues = mode === 'distribution' ? values.map((value) => value * 100) : values
-  const dataMaximum = Math.max(...displayValues, mode === 'distribution' ? 0.01 : 1)
-  const chartMaximum = mode === 'distribution' ? dataMaximum * 1.1 : dataMaximum
+  const isProbability = mode === 'distribution' || mode === 'cdf'
+  const displayValues = isProbability ? values.map((value) => value * 100) : values
+  const dataMaximum = Math.max(...displayValues, isProbability ? 0.01 : 1)
+  const chartMaximum = isProbability ? dataMaximum * 1.1 : dataMaximum
   const transform = (value) => scale === 'log' ? Math.log10(value + 1) : value
   const transformedMaximum = transform(chartMaximum)
   const x = (index) => left + (index / 255) * plotWidth
   const y = (value) => top + plotHeight - (transform(value) / transformedMaximum) * plotHeight
   const linePath = (series) => series.map((value, index) => {
-    const displayValue = mode === 'distribution' ? value * 100 : value
+    const displayValue = isProbability ? value * 100 : value
     return `${index === 0 ? 'M' : 'L'} ${x(index).toFixed(2)} ${y(displayValue).toFixed(2)}`
   }).join(' ')
   const xTicks = [0, 64, 128, 192, 255]
@@ -59,13 +65,13 @@ function Plot({ title, yLabel, channels, mode, scale, onScaleChange }) {
 
   return <article className="histogram-card">
     <div className="chart-heading">
-      <div><span className="eyebrow">{mode === 'histogram' ? 'Histogram' : 'Distribution'}</span><h3>{title}</h3></div>
+      <div><span className="eyebrow">{mode === 'histogram' ? 'Histogram' : mode === 'cdf' ? 'CDF' : 'PDF'}</span><h3>{title}</h3></div>
       <div className="chart-tools">
         {mode === 'histogram' && <div className="scale-toggle" aria-label="Histogram vertical scale">
           <button className={scale === 'linear' ? 'active' : ''} onClick={() => onScaleChange('linear')}>Linear</button>
           <button className={scale === 'log' ? 'active' : ''} onClick={() => onScaleChange('log')}>Log</button>
         </div>}
-        <Legend names={names} />
+        <Legend names={Object.keys(channels)} visibleChannels={visibleChannels} onToggle={onToggleChannel} />
       </div>
     </div>
     <svg className="histogram-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, ${yLabel}`}>
@@ -85,16 +91,24 @@ function Plot({ title, yLabel, channels, mode, scale, onScaleChange }) {
   </article>
 }
 
-export default function HistogramCharts({ result }) {
+export default function HistogramCharts({ result, title }) {
   const isRgb = result.image_type === 'rgb'
   const names = isRgb ? ['red', 'green', 'blue'] : ['grayscale']
   const channels = Object.fromEntries(names.map((name) => [name, result.channels[name]]))
   const titlePrefix = isRgb ? 'RGB' : 'Grayscale'
   const [histogramScale, setHistogramScale] = useState('linear')
+  const [visibleChannels, setVisibleChannels] = useState(names)
+
+  function toggleChannel(name) {
+    setVisibleChannels((current) => current.includes(name)
+      ? current.filter((channel) => channel !== name)
+      : [...current, name])
+  }
 
   return <div className="histogram-results">
-    <div className="analysis-summary"><span className="eyebrow">Image analysis</span><strong>{titlePrefix} image · {result.metadata.width} × {result.metadata.height}</strong><span>Computed with a custom 256-bin histogram and normalized distribution.</span></div>
-    <Plot title={`${titlePrefix} Histogram`} yLabel="Pixel Count" channels={channels} mode="histogram" scale={histogramScale} onScaleChange={setHistogramScale} />
-    <Plot title={`${titlePrefix} Distribution`} yLabel="Probability (%)" channels={channels} mode="distribution" scale="linear" onScaleChange={() => {}} />
+    <div className="analysis-summary"><span className="eyebrow">Image analysis</span><strong>{title ?? `${titlePrefix} image`}{result.metadata ? ` · ${result.metadata.width} × ${result.metadata.height}` : ''}</strong><span>Computed with a custom 256-bin histogram, PDF, and CDF.</span></div>
+    <Plot title={`${titlePrefix} Histogram`} yLabel="Pixel Count" channels={channels} mode="histogram" scale={histogramScale} onScaleChange={setHistogramScale} visibleChannels={visibleChannels} onToggleChannel={toggleChannel} />
+    <Plot title={`${titlePrefix} PDF`} yLabel="Probability (%)" channels={channels} mode="distribution" scale="linear" onScaleChange={() => {}} visibleChannels={visibleChannels} onToggleChannel={toggleChannel} />
+    <Plot title={`${titlePrefix} CDF`} yLabel="Cumulative Probability (%)" channels={channels} mode="cdf" scale="linear" onScaleChange={() => {}} visibleChannels={visibleChannels} onToggleChannel={toggleChannel} />
   </div>
 }

@@ -32,6 +32,37 @@ const OPERATION_GROUPS = [
       { group: 'histogram', name: 'analyze', label: 'Histogram & Distribution', description: 'Counts intensity values and calculates their normalized probability distribution.' },
     ],
   },
+  {
+    key: 'transform',
+    label: 'Transform & Enhancement',
+    note: 'Color and contrast operations',
+    operations: [
+      {
+        group: 'transform',
+        name: 'equalize',
+        label: 'Histogram Equalization',
+        description: 'Redistributes intensity values using the cumulative distribution function.',
+      },
+      {
+        group: 'transform',
+        name: 'to-gray',
+        label: 'RGB to Grayscale',
+        description: 'Converts an RGB image to one grayscale channel.',
+      },
+      {
+        group: 'transform',
+        name: 'to-rgb',
+        label: 'Grayscale to RGB',
+        description: 'Converts a grayscale image into three RGB channels.',
+      },
+      {
+        group: 'transform',
+        name: 'normalize',
+        label: 'Image Normalization',
+        description: 'Maps the selected input intensity range to the full 0–255 display range.',
+      },
+    ],
+  },
 ]
 
 const OPERATIONS = OPERATION_GROUPS.flatMap((group) => group.operations)
@@ -46,6 +77,10 @@ const DEFAULTS = {
   'edge/prewitt': { direction: 'magnitude' },
   'edge/canny': { lower_threshold: 50, upper_threshold: 150 },
   'histogram/analyze': {},
+  'transform/equalize': {},
+  'transform/to-gray': {},
+  'transform/to-rgb': {},
+  'transform/normalize': { min_val: 0, max_val: 255 },
 }
 
 function operationId(operation) { return `${operation.group}/${operation.name}` }
@@ -58,7 +93,23 @@ function validate(operation, values) {
   if (operation.group === 'noise' && values.seed !== '' && !Number.isInteger(Number(values.seed))) return 'Seed must be an integer.'
   if (operation.group === 'filters' && operation.name === 'gaussian' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
   if (operation.group === 'edge' && operation.name === 'canny' && (Number(values.lower_threshold) < 0 || Number(values.lower_threshold) >= Number(values.upper_threshold))) return 'Lower threshold must be less than upper threshold.'
+  if (operation.group === 'transform' && operation.name === 'normalize' && Number(values.max_val) <= Number(values.min_val)) return 'Maximum value must be greater than minimum value.'
   return ''
+}
+
+function HistogramSourceImages({ originalUrl, originalName, workingUrl, workingLabel, selectedSourceLabel }) {
+  return <div className="histogram-source-images">
+    <article className="image-card">
+      <div className="result-heading"><div><span className="eyebrow">Original</span><h3>{originalName || 'Uploaded image'}</h3></div></div>
+      {originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}
+      <div className="image-caption">Original uploaded image</div>
+    </article>
+    {workingUrl && <article className={`image-card ${selectedSourceLabel === workingLabel ? 'selected-source-card' : ''}`}>
+      <div className="result-heading"><div><span className="eyebrow">Latest result</span><h3>{workingLabel}</h3></div></div>
+      <img src={workingUrl} alt={`${workingLabel} result`} />
+      <div className="image-caption">{selectedSourceLabel === workingLabel ? 'Currently selected for analysis' : 'Available as a later input'}</div>
+    </article>}
+  </div>
 }
 
 export default function App() {
@@ -140,7 +191,7 @@ export default function App() {
         {error && <div className="error-message" role="alert">{error}</div>}
         <button className="apply-button" disabled={loading} onClick={apply}>{loading ? 'Processing…' : 'Run operation'}</button>
       </aside>
-      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div><div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Reference</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{result?.kind === 'histogram' ? <HistogramCharts result={result} /> : result ? <ResultCard result={result} /> : <div className="empty-result"><span>04</span><h2>Run a method to inspect the result</h2><p>The processed image and technical metadata will appear here.</p></div>}</div>{workingUrl && result && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
+      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div>{result?.kind === 'histogram' ? <div className="histogram-analysis-layout"><HistogramSourceImages originalUrl={originalUrl} originalName={file?.name} workingUrl={workingUrl} workingLabel={workingLabel} selectedSourceLabel={result.sourceLabel} /><HistogramCharts result={result} /></div> : <div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Reference</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{result ? <ResultCard result={result} /> : <div className="empty-result"><span>04</span><h2>Run a method to inspect the result</h2><p>The processed image and technical metadata will appear here.</p></div>}</div>}{result?.histograms && <div className="comparison-charts"><HistogramCharts result={result.histograms.before} title={`Before ${result.label.toLowerCase()}`} /><HistogramCharts result={result.histograms.after} title={`After ${result.label.toLowerCase()}`} /></div>}{workingUrl && result && result.kind !== 'histogram' && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
     </section>
   </main>
 }
