@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import ImageUploader from './components/ImageUploader'
 import ParameterPanel from './components/ParameterPanel'
 import ResultCard from './components/ResultCard'
+import HistogramCharts from './components/HistogramCharts'
 import { dataUrlToFile, processImage } from './services/api'
 
 const OPERATION_GROUPS = [
@@ -26,6 +27,11 @@ const OPERATION_GROUPS = [
       { group: 'edge', name: 'canny', label: 'Canny', description: 'Detects contours with the OpenCV Canny implementation and two thresholds.' },
     ],
   },
+  {
+    key: 'histogram', label: 'Histogram', note: 'Intensity analysis', operations: [
+      { group: 'histogram', name: 'analyze', label: 'Histogram & Distribution', description: 'Counts intensity values and calculates their normalized probability distribution.' },
+    ],
+  },
 ]
 
 const OPERATIONS = OPERATION_GROUPS.flatMap((group) => group.operations)
@@ -39,6 +45,7 @@ const DEFAULTS = {
   'edge/roberts': { direction: 'magnitude' },
   'edge/prewitt': { direction: 'magnitude' },
   'edge/canny': { lower_threshold: 50, upper_threshold: 150 },
+  'histogram/analyze': {},
 }
 
 function operationId(operation) { return `${operation.group}/${operation.name}` }
@@ -85,6 +92,11 @@ export default function App() {
     setSelectedCategory(nextOperation.group); setOperationKey(nextKey); setValues({ ...DEFAULTS[nextKey] }); setError('')
   }
 
+  function chooseCategory(categoryKey) {
+    const group = OPERATION_GROUPS.find((item) => item.key === categoryKey)
+    if (group?.operations[0]) chooseOperation(group.operations[0])
+  }
+
   function updateValue(key, value) {
     const numericParameter = key !== 'direction'
     setValues((current) => ({ ...current, [key]: numericParameter ? number(value) : value }))
@@ -98,6 +110,10 @@ export default function App() {
     setLoading(true)
     try {
       const response = await processImage(operation, selectedSource, values)
+      if (operation.group === 'histogram') {
+        setResult({ ...response, label: operation.label, sourceLabel: selectedSourceLabel, kind: 'histogram' })
+        return
+      }
       setWorkingFile(dataUrlToFile(response.image, `${operation.name}-result.png`)); setWorkingUrl(response.image); setWorkingLabel(operation.label); setSourceMode('latest')
       setResult({ ...response, label: operation.label, sourceLabel: selectedSourceLabel })
     } catch (requestError) {
@@ -107,14 +123,14 @@ export default function App() {
   }
 
   return <main className="page-shell">
-    <header className="hero"><div className="hero-copy"><span className="eyebrow">Course workbench</span><h1>Image Processing Laboratory</h1><p className="hero-subtitle">Computer Vision — Task 1</p><p className="hero-description">Interactive experimentation with custom image-processing algorithms.</p></div><div className="scope-chip"><span>Laboratory scope</span><b>Noise · filtering · edges</b></div></header>
+    <header className="hero"><div className="hero-copy"><span className="eyebrow"></span><h1>Image Processing</h1><p className="hero-subtitle">Computer Vision </p><p className="hero-description">Interactive experimentation with custom image-processing algorithms.</p></div><div className="scope-chip"><span>Laboratory scope</span><b>Noise · filtering · edges</b></div></header>
     <section className="lab-layout">
       <aside className="control-panel">
         <div className="step-heading"><span className="step-number">01</span><div><span className="section-label">Input</span><h2>Image source</h2></div></div>
         <ImageUploader file={file} onChange={chooseFile} />
         <div className="step-heading"><span className="step-number">02</span><div><span className="section-label">Operation</span><h2>Select a method</h2></div></div>
         <div className="operation-picker">
-          <label className="category-field" htmlFor="operation-category"><span>Category</span><select id="operation-category" value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>{OPERATION_GROUPS.map((group) => <option value={group.key} key={group.key}>{group.label}</option>)}</select></label>
+          <label className="category-field" htmlFor="operation-category"><span>Category</span><select id="operation-category" value={selectedCategory} onChange={(event) => chooseCategory(event.target.value)}>{OPERATION_GROUPS.map((group) => <option value={group.key} key={group.key}>{group.label}</option>)}</select></label>
           <div className="operation-list">{activeGroup.operations.map((item) => <button className={operationId(item) === operationKey ? 'operation-option selected' : 'operation-option'} key={operationId(item)} onClick={() => chooseOperation(item)} type="button"><span className="operation-mark" /><span>{item.label}</span><span className="operation-arrow">→</span></button>)}</div>
         </div>
         <div className="step-heading parameter-step"><span className="step-number">03</span><div><span className="section-label">Parameters</span><h2>{operation.label}</h2></div></div>
@@ -124,7 +140,7 @@ export default function App() {
         {error && <div className="error-message" role="alert">{error}</div>}
         <button className="apply-button" disabled={loading} onClick={apply}>{loading ? 'Processing…' : 'Run operation'}</button>
       </aside>
-      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div><div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Reference</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{result ? <ResultCard result={result} /> : <div className="empty-result"><span>04</span><h2>Run a method to inspect the result</h2><p>The processed image and technical metadata will appear here.</p></div>}</div>{workingUrl && result && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
+      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div><div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Reference</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{result?.kind === 'histogram' ? <HistogramCharts result={result} /> : result ? <ResultCard result={result} /> : <div className="empty-result"><span>04</span><h2>Run a method to inspect the result</h2><p>The processed image and technical metadata will appear here.</p></div>}</div>{workingUrl && result && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
     </section>
   </main>
 }

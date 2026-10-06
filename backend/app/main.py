@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.routes.filters import router as filters_router
 from .api.routes.noise import router as noise_router
 from .api.routes.edge import router as edge_router
+from .api.routes.histogram import router as histogram_router
 
 app = FastAPI(title="Computer Vision Task 1 API", version="1.0.0")
 
@@ -20,6 +21,7 @@ app.add_middleware(
 app.include_router(noise_router)
 app.include_router(filters_router)
 app.include_router(edge_router)
+app.include_router(histogram_router)
 
 
 @app.get("/api/health")
