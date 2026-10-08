@@ -72,6 +72,14 @@ h1 { margin: 13px 0 15px; font-family: Georgia, "Times New Roman", serif; font-s
 .histogram-source-images .image-card > img { aspect-ratio: 1.25; }
 .selected-source-card { border-color: #73937c; box-shadow: 0 0 0 2px rgba(115,147,124,.16), 0 16px 36px rgba(54,59,51,.055); }
 .image-card, .result-card { overflow: hidden; }
+.frequency-result { overflow: hidden; border: 1px solid #dedad1; border-radius: 14px; background: rgba(255,255,255,.72); box-shadow: 0 10px 25px rgba(54,59,51,.04); }
+.frequency-result-heading { display: flex; justify-content: space-between; align-items: start; gap: 14px; padding: 18px; }
+.frequency-result-heading h2 { margin: 5px 0 0; color: #26372f; font-family: Georgia, serif; font-size: 1.15rem; font-weight: 500; }
+.frequency-view-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 0 18px 18px; }
+.frequency-view { overflow: hidden; border: 1px solid #dedad1; border-radius: 10px; background: #fff; }
+.frequency-view .result-heading { min-height: 64px; padding: 14px; }
+.frequency-view > img { display: block; width: 100%; aspect-ratio: 1.25; object-fit: contain; background: #e9e8e1; }
+.frequency-view .image-caption { padding: 10px 14px; }
 .image-card > img, .result-card > img { display: block; width: 100%; aspect-ratio: 1.25; object-fit: contain; background: #e9e8e1; }
 .result-heading { display: flex; justify-content: space-between; gap: 14px; align-items: start; min-height: 76px; padding: 18px 18px 13px; }
 h3 { margin: 5px 0 0; color: #26372f; font-size: .96rem; font-weight: 780; overflow-wrap: anywhere; }
@@ -107,5 +115,6 @@ h3 { margin: 5px 0 0; color: #26372f; font-size: .96rem; font-weight: 780; overf
 @media (max-width: 940px) { .lab-layout { grid-template-columns: 1fr; } .control-panel { order: 0; } .results-area { order: 1; } }
 @media (max-width: 620px) { .page-shell { padding: 25px 16px 40px; } .hero { align-items: start; flex-direction: column; gap: 20px; padding-bottom: 30px; } .scope-chip { width: 100%; } .image-grid { grid-template-columns: 1fr; } .control-panel { padding: 18px; } }
 @media (max-width: 900px) { .comparison-charts { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .frequency-view-grid { grid-template-columns: 1fr; padding: 0 12px 12px; } .frequency-result-heading { padding: 14px; } }
 @media (max-width: 900px) { .histogram-analysis-layout { grid-template-columns: 1fr; } .histogram-source-images { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .histogram-source-images { grid-template-columns: 1fr; } }
