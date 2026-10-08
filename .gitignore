@@ -1,6 +1,16 @@
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
+env/
+.venv/
+
+# Frontend / Node
 frontend/node_modules/
 frontend/dist/
+
+# IDE / Editor
 .idea/workspace.xml
+
+# Environment variables (Crucial for security)
+.env
