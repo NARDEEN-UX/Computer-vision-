@@ -2,13 +2,19 @@ import axios from 'axios'
 
 const client = axios.create({ baseURL: 'http://localhost:8000' })
 
-export async function processImage(operation, file, parameters) {
+export async function processImage(operation, file, parameters, secondaryFile = null) {
   const data = new FormData()
-  data.append('image', file)
+  if (operation.name === 'hybrid') {
+    if (!file) throw new Error('Primary image is required for hybrid processing.')
+    data.append('image_a', file)
+    data.append('image_b', secondaryFile || file)
+  } else {
+    data.append('image', file)
+  }
   Object.entries(parameters).forEach(([key, value]) => {
     if (value !== '' && value !== null && value !== undefined) data.append(key, String(value))
   })
-  const response = await client.post(`/api/${operation.group}/${operation.name}`, data)
+  const response = await client.post(`/api/${operation.apiGroup || operation.group}/${operation.name}`, data)
   return response.data
 }
 

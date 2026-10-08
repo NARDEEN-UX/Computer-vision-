@@ -57,6 +57,36 @@ def test_api_rejects_invalid_parameters() -> None:
     assert "Kernel size" in response.json()["detail"]
 
 
+def test_frequency_api_returns_gaussian_visualizations_for_both_modes() -> None:
+    client = TestClient(app)
+    for filter_type in ("low", "high"):
+        response = client.post(
+            "/api/filters/frequency",
+            files={"image": _grayscale_file()},
+            data={"cutoff": "12", "filter_type": filter_type, "filter_family": "gaussian", "sigma": "18"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["parameters"] == {
+            "cutoff": 12.0,
+            "filter_type": filter_type,
+            "filter_family": "gaussian",
+            "sigma": 18.0,
+        }
+        for key in ("image", "fourier_input", "fourier_result", "filter_image", "fourier_filter"):
+            assert body[key].startswith("data:image/png;base64,")
+
+
+def test_frequency_api_accepts_ideal_filter_family() -> None:
+    response = TestClient(app).post(
+        "/api/filters/frequency",
+        files={"image": _grayscale_file()},
+        data={"cutoff": "12", "filter_type": "high", "filter_family": "ideal"},
+    )
+    assert response.status_code == 200
+    assert response.json()["parameters"]["filter_family"] == "ideal"
+
+
 def test_edge_api_returns_grayscale_metadata_and_implementation() -> None:
     client = TestClient(app)
     response = client.post(

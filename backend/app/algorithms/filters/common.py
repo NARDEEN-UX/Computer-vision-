@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 
-ALLOWED_KERNEL_SIZES = (3, 5, 7, 9)
+ALLOWED_KERNEL_SIZES = (3, 5, 7, 9, 15)
 
 
 def validate_kernel_size(kernel_size: int) -> int:

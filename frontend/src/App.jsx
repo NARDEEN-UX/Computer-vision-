@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ImageUploader from './components/ImageUploader'
 import ParameterPanel from './components/ParameterPanel'
 import ResultCard from './components/ResultCard'
+import FrequencyResultCard from './components/FrequencyResultCard'
 import HistogramCharts from './components/HistogramCharts'
 import { dataUrlToFile, processImage } from './services/api'
 
@@ -17,6 +18,16 @@ const OPERATION_GROUPS = [
       { group: 'filters', name: 'average', label: 'Average Filter', description: 'Smooths the image by averaging the values in a local neighborhood.' },
       { group: 'filters', name: 'gaussian', label: 'Gaussian Filter', description: 'Smooths the image using a Gaussian-weighted neighborhood.' },
       { group: 'filters', name: 'median', label: 'Median Filter', description: 'Replaces each pixel with the median value of its local neighborhood.' },
+    ],
+  },
+  {
+    key: 'frequency', label: 'Frequency Filtering', note: 'Fourier-domain filtering', operations: [
+      { group: 'frequency', apiGroup: 'filters', name: 'frequency', label: 'Fourier Filter', description: 'Applies a custom ideal low-pass or high-pass mask in the Fourier domain.' },
+    ],
+  },
+  {
+    key: 'hybrid', label: 'Hybrid Image', note: 'Two-image frequency blending', operations: [
+      { group: 'hybrid', apiGroup: 'filters', name: 'hybrid', label: 'Hybrid Image', description: 'Blends low frequencies from one image with high frequencies from another.' },
     ],
   },
   {
@@ -72,6 +83,8 @@ const DEFAULTS = {
   'filters/average': { kernel_size: 3 },
   'filters/gaussian': { kernel_size: 3, sigma: 1 },
   'filters/median': { kernel_size: 3 },
+  'frequency/frequency': { cutoff: 30, filter_type: 'low', filter_family: 'gaussian', sigma: 30 },
+  'hybrid/hybrid': { sigma: 8, kernel_size: 15 },
   'edge/sobel': { direction: 'magnitude' },
   'edge/roberts': { direction: 'magnitude' },
   'edge/prewitt': { direction: 'magnitude' },
@@ -92,6 +105,8 @@ function validate(operation, values) {
   if (operation.name === 'salt-pepper' && (Number(values.salt_probability) < 0 || Number(values.salt_probability) > 1)) return 'Salt probability must be between 0 and 1.'
   if (operation.group === 'noise' && values.seed !== '' && !Number.isInteger(Number(values.seed))) return 'Seed must be an integer.'
   if (operation.group === 'filters' && operation.name === 'gaussian' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
+  if (operation.name === 'frequency' && Number(values.cutoff) <= 0) return 'Cutoff must be greater than zero.'
+  if (operation.name === 'hybrid' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
   if (operation.group === 'edge' && operation.name === 'canny' && (Number(values.lower_threshold) < 0 || Number(values.lower_threshold) >= Number(values.upper_threshold))) return 'Lower threshold must be less than upper threshold.'
   if (operation.group === 'transform' && operation.name === 'normalize' && Number(values.max_val) <= Number(values.min_val)) return 'Maximum value must be greater than minimum value.'
   return ''
@@ -115,6 +130,8 @@ function HistogramSourceImages({ originalUrl, originalName, workingUrl, workingL
 export default function App() {
   const [file, setFile] = useState(null)
   const [originalUrl, setOriginalUrl] = useState('')
+  const [secondaryFile, setSecondaryFile] = useState(null)
+  const [secondaryUrl, setSecondaryUrl] = useState('')
   const [workingFile, setWorkingFile] = useState(null)
   const [workingUrl, setWorkingUrl] = useState('')
   const [workingLabel, setWorkingLabel] = useState('Original image')
@@ -131,11 +148,40 @@ export default function App() {
   const selectedSource = sourceMode === 'latest' && workingFile ? workingFile : file
   const selectedSourceLabel = sourceMode === 'latest' && workingFile ? workingLabel : 'Original image'
 
+  useEffect(() => {
+    if (operation.name !== 'frequency' || !file) return undefined
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const response = await processImage(operation, file, values)
+        if (!cancelled) setResult({ ...response, label: operation.label, sourceLabel: 'Original image', kind: 'frequency' })
+      } catch (requestError) {
+        if (!cancelled) {
+          const detail = requestError.response?.data?.detail
+          setError(typeof detail === 'string' ? detail : 'The frequency preview could not be generated.')
+        }
+      }
+    }, 180)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [file, operation, values.cutoff, values.filter_type, values.filter_family, values.sigma])
+
   function chooseFile(nextFile) {
     setError('')
     if (!nextFile) return
     if (!nextFile.type.startsWith('image/')) return setError('Please choose a PNG or JPEG image.')
     setFile(nextFile); setOriginalUrl(URL.createObjectURL(nextFile)); setWorkingFile(null); setWorkingUrl(''); setWorkingLabel('Original image'); setSourceMode('original'); setResult(null)
+  }
+
+  function chooseSecondaryFile(nextFile) {
+    setError('')
+    if (!nextFile) return
+    if (!nextFile.type.startsWith('image/')) return setError('Please choose a PNG or JPEG image.')
+    setSecondaryFile(nextFile)
+    setSecondaryUrl(URL.createObjectURL(nextFile))
+    setResult(null)
   }
 
   function chooseOperation(nextOperation) {
@@ -149,18 +195,25 @@ export default function App() {
   }
 
   function updateValue(key, value) {
-    const numericParameter = key !== 'direction'
+    const numericParameter = !['direction', 'filter_type', 'filter_family'].includes(key)
     setValues((current) => ({ ...current, [key]: numericParameter ? number(value) : value }))
   }
 
   async function apply() {
     setError('')
-    if (!selectedSource) return setError('Upload an image first.')
+    if (operation.name === 'hybrid') {
+      if (!file) return setError('Upload the primary image for hybrid processing.')
+      if (!secondaryFile) return setError('Upload the secondary image for hybrid processing.')
+    } else if (!selectedSource) {
+      return setError('Upload an image first.')
+    }
     const validationError = validate(operation, values)
     if (validationError) return setError(validationError)
     setLoading(true)
     try {
-      const response = await processImage(operation, selectedSource, values)
+      const response = operation.name === 'hybrid'
+        ? await processImage(operation, file, values, secondaryFile)
+        : await processImage(operation, selectedSource, values)
       if (operation.group === 'histogram') {
         setResult({ ...response, label: operation.label, sourceLabel: selectedSourceLabel, kind: 'histogram' })
         return
@@ -178,7 +231,14 @@ export default function App() {
     <section className="lab-layout">
       <aside className="control-panel">
         <div className="step-heading"><span className="step-number">01</span><div><span className="section-label">Input</span><h2>Image source</h2></div></div>
-        <ImageUploader file={file} onChange={chooseFile} />
+        {operation.name === 'hybrid' ? (
+          <div className="dual-upload-stack">
+            <ImageUploader file={file} onChange={chooseFile} />
+            <ImageUploader file={secondaryFile} onChange={chooseSecondaryFile} />
+          </div>
+        ) : (
+          <ImageUploader file={file} onChange={chooseFile} />
+        )}
         <div className="step-heading"><span className="step-number">02</span><div><span className="section-label">Operation</span><h2>Select a method</h2></div></div>
         <div className="operation-picker">
           <label className="category-field" htmlFor="operation-category"><span>Category</span><select id="operation-category" value={selectedCategory} onChange={(event) => chooseCategory(event.target.value)}>{OPERATION_GROUPS.map((group) => <option value={group.key} key={group.key}>{group.label}</option>)}</select></label>
@@ -186,12 +246,17 @@ export default function App() {
         </div>
         <div className="step-heading parameter-step"><span className="step-number">03</span><div><span className="section-label">Parameters</span><h2>{operation.label}</h2></div></div>
         <p className="operation-description">{operation.description}</p>
+        {operation.name === 'hybrid' && (
+          <div className="dual-upload-caption">
+            <small>Hybrid image uses two input images: the first provides low-frequency content and the second provides high-frequency detail.</small>
+          </div>
+        )}
         <ParameterPanel operation={operation} values={values} onChange={updateValue} />
-        {workingFile && <div className="source-control"><span className="field-caption">Process this operation on</span><div className="source-options"><button type="button" className={sourceMode === 'original' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('original')}>Original</button><button type="button" className={sourceMode === 'latest' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('latest')}>Latest result</button></div><small>{selectedSourceLabel}</small></div>}
+        {workingFile && operation.name !== 'hybrid' && <div className="source-control"><span className="field-caption">Process this operation on</span><div className="source-options"><button type="button" className={sourceMode === 'original' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('original')}>Original</button><button type="button" className={sourceMode === 'latest' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('latest')}>Latest result</button></div><small>{selectedSourceLabel}</small></div>}
         {error && <div className="error-message" role="alert">{error}</div>}
         <button className="apply-button" disabled={loading} onClick={apply}>{loading ? 'Processing…' : 'Run operation'}</button>
       </aside>
-      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div>{result?.kind === 'histogram' ? <div className="histogram-analysis-layout"><HistogramSourceImages originalUrl={originalUrl} originalName={file?.name} workingUrl={workingUrl} workingLabel={workingLabel} selectedSourceLabel={result.sourceLabel} /><HistogramCharts result={result} /></div> : <div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Reference</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{result ? <ResultCard result={result} /> : <div className="empty-result"><span>04</span><h2>Run a method to inspect the result</h2><p>The processed image and technical metadata will appear here.</p></div>}</div>}{result?.histograms && <div className="comparison-charts"><HistogramCharts result={result.histograms.before} title={`Before ${result.label.toLowerCase()}`} /><HistogramCharts result={result.histograms.after} title={`After ${result.label.toLowerCase()}`} /></div>}{workingUrl && result && result.kind !== 'histogram' && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
+      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div>{result?.kind === 'histogram' ? <div className="histogram-analysis-layout"><HistogramSourceImages originalUrl={originalUrl} originalName={file?.name} workingUrl={workingUrl} workingLabel={workingLabel} selectedSourceLabel={result.sourceLabel} /><HistogramCharts result={result} /></div> : result?.kind === 'frequency' ? <FrequencyResultCard result={result} inputImage={originalUrl} /> : <div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Reference</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{operation.name === 'hybrid' && secondaryUrl ? <article className="image-card"><div className="result-heading"><div><span className="eyebrow">Secondary</span><h3>{secondaryFile ? secondaryFile.name : 'Second image input'}</h3></div></div><img src={secondaryUrl} alt="Secondary hybrid input" /><div className="image-caption">High-frequency detail source</div></article> : null}{result ? <ResultCard result={result} /> : <div className="empty-result"><span>04</span><h2>Run a method to inspect the result</h2><p>The processed image and technical metadata will appear here.</p></div>}</div>}{result?.histograms && <div className="comparison-charts"><HistogramCharts result={result.histograms.before} title={`Before ${result.label.toLowerCase()}`} /><HistogramCharts result={result.histograms.after} title={`After ${result.label.toLowerCase()}`} /></div>}{workingUrl && result && result.kind !== 'histogram' && result.kind !== 'frequency' && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
     </section>
   </main>
 }
