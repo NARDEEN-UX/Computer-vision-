@@ -83,7 +83,7 @@ const DEFAULTS = {
   'filters/average': { kernel_size: 3 },
   'filters/gaussian': { kernel_size: 3, sigma: 1 },
   'filters/median': { kernel_size: 3 },
-  'frequency/frequency': { cutoff: 30, filter_type: 'low', filter_family: 'gaussian', sigma: 30 },
+  'frequency/frequency': { cutoff: 30, filter_type: 'low', filter_family: 'gaussian', mean: 0, sigma: 30 },
   'hybrid/hybrid': { sigma: 8, kernel_size: 15 },
   'edge/sobel': { direction: 'magnitude' },
   'edge/roberts': { direction: 'magnitude' },
@@ -106,6 +106,8 @@ function validate(operation, values) {
   if (operation.group === 'noise' && values.seed !== '' && !Number.isInteger(Number(values.seed))) return 'Seed must be an integer.'
   if (operation.group === 'filters' && operation.name === 'gaussian' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
   if (operation.name === 'frequency' && Number(values.cutoff) <= 0) return 'Cutoff must be greater than zero.'
+  if (operation.name === 'frequency' && Number(values.mean) < 0) return 'Gaussian mean must be zero or greater.'
+  if (operation.name === 'frequency' && Number(values.sigma) <= 0) return 'Gaussian sigma must be greater than zero.'
   if (operation.name === 'hybrid' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
   if (operation.group === 'edge' && operation.name === 'canny' && (Number(values.lower_threshold) < 0 || Number(values.lower_threshold) >= Number(values.upper_threshold))) return 'Lower threshold must be less than upper threshold.'
   if (operation.group === 'transform' && operation.name === 'normalize' && Number(values.max_val) <= Number(values.min_val)) return 'Maximum value must be greater than minimum value.'
@@ -166,7 +168,7 @@ export default function App() {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [file, operation, values.cutoff, values.filter_type, values.filter_family, values.sigma])
+  }, [file, operation, values.cutoff, values.filter_type, values.filter_family, values.mean, values.sigma])
 
   function chooseFile(nextFile) {
     setError('')

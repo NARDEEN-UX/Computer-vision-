@@ -57,12 +57,15 @@ async def apply_frequency_filter(
     cutoff: Annotated[float, Form()] = 30.0,
     filter_type: Annotated[str, Form()] = "low",
     filter_family: Annotated[str, Form()] = "gaussian",
+    mean: Annotated[float, Form()] = 0.0,
     sigma: Annotated[float, Form()] = 30.0,
 ):
     if cutoff <= 0:
         raise HTTPException(status_code=422, detail="Cutoff must be greater than zero.")
     if sigma <= 0:
         raise HTTPException(status_code=422, detail="Gaussian sigma must be greater than zero.")
+    if mean < 0:
+        raise HTTPException(status_code=422, detail="Gaussian mean must be zero or greater.")
     normalized_type = filter_type.lower()
     normalized_family = filter_family.lower()
     if normalized_type not in {"low", "high"}:
@@ -82,6 +85,7 @@ async def apply_frequency_filter(
         cutoff,
         normalized_type,
         normalized_family,
+        mean,
         sigma,
     )
     elapsed_ms = (time.perf_counter() - started) * 1000
@@ -96,6 +100,7 @@ async def apply_frequency_filter(
             "cutoff": cutoff,
             "filter_type": normalized_type,
             "filter_family": normalized_family,
+            "mean": mean,
             "sigma": sigma,
         },
         "metadata": {

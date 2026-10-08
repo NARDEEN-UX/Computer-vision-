@@ -63,7 +63,7 @@ def test_frequency_api_returns_gaussian_visualizations_for_both_modes() -> None:
         response = client.post(
             "/api/filters/frequency",
             files={"image": _grayscale_file()},
-            data={"cutoff": "12", "filter_type": filter_type, "filter_family": "gaussian", "sigma": "18"},
+            data={"cutoff": "12", "filter_type": filter_type, "filter_family": "gaussian", "mean": "6", "sigma": "18"},
         )
         assert response.status_code == 200
         body = response.json()
@@ -71,6 +71,7 @@ def test_frequency_api_returns_gaussian_visualizations_for_both_modes() -> None:
             "cutoff": 12.0,
             "filter_type": filter_type,
             "filter_family": "gaussian",
+            "mean": 6.0,
             "sigma": 18.0,
         }
         for key in ("image", "fourier_input", "fourier_result", "filter_image", "fourier_filter"):
@@ -81,7 +82,7 @@ def test_frequency_api_accepts_ideal_filter_family() -> None:
     response = TestClient(app).post(
         "/api/filters/frequency",
         files={"image": _grayscale_file()},
-        data={"cutoff": "12", "filter_type": "high", "filter_family": "ideal"},
+        data={"cutoff": "12", "filter_type": "high", "filter_family": "ideal", "mean": "0"},
     )
     assert response.status_code == 200
     assert response.json()["parameters"]["filter_family"] == "ideal"

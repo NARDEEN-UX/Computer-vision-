@@ -21,6 +21,7 @@ def _filter_mask(
     cutoff: float,
     filter_type: str,
     filter_family: str,
+    mean: float,
     sigma: float,
 ) -> np.ndarray:
     rows, cols = shape
@@ -31,7 +32,7 @@ def _filter_mask(
     if filter_family == "ideal":
         low_pass = (distance <= cutoff).astype(np.float32)
     elif filter_family == "gaussian":
-        low_pass = np.exp(-(distance**2) / (2.0 * sigma**2)).astype(np.float32)
+        low_pass = np.exp(-((distance - mean) ** 2) / (2.0 * sigma**2)).astype(np.float32)
     else:
         raise ValueError("filter_family must be 'ideal' or 'gaussian'.")
 
@@ -77,13 +78,14 @@ def frequency_filter_details(
     cutoff: float = 30.0,
     filter_type: str = "low",
     filter_family: str = "gaussian",
+    mean: float = 0.0,
     sigma: float = 30.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return the filtered image and visualizations of its frequency-domain steps."""
     grayscale = _as_grayscale(image)
     transform = np.fft.fft2(grayscale)
     shifted = np.fft.fftshift(transform)
-    mask = _filter_mask(grayscale.shape, cutoff, filter_type, filter_family, sigma)
+    mask = _filter_mask(grayscale.shape, cutoff, filter_type, filter_family, mean, sigma)
     filtered = shifted * mask
     inverse_shifted = np.fft.ifftshift(filtered)
     restored = np.fft.ifft2(inverse_shifted)
@@ -103,7 +105,8 @@ def frequency_filter(
     cutoff: float = 30.0,
     filter_type: str = "low",
     filter_family: str = "gaussian",
+    mean: float = 0.0,
     sigma: float = 30.0,
 ) -> np.ndarray:
     """Apply an ideal or Gaussian Fourier-domain filter."""
-    return frequency_filter_details(image, cutoff, filter_type, filter_family, sigma)[0]
+    return frequency_filter_details(image, cutoff, filter_type, filter_family, mean, sigma)[0]
