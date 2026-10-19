@@ -6,6 +6,7 @@ import pytest
 from app.algorithms.convolution.conv2d import conv2d
 from app.algorithms.filters.average import average_filter, average_kernel
 from app.algorithms.filters.gaussian import gaussian_filter, gaussian_kernel
+from app.algorithms.filters.hybrid import hybrid_image
 from app.algorithms.filters.median import median_filter
 from app.algorithms.noise.gaussian import gaussian_noise
 from app.algorithms.noise.salt_pepper import salt_pepper_noise
@@ -44,6 +45,19 @@ def test_gaussian_kernel_is_symmetric_and_normalized() -> None:
     kernel = gaussian_kernel(5, 1.5)
     assert np.isclose(kernel.sum(), 1.0)
     assert np.allclose(kernel, np.flip(kernel))
+
+
+def test_hybrid_uses_frequency_cutoffs_and_preserves_output_shape() -> None:
+    image_a = np.zeros((32, 32), dtype=np.uint8)
+    image_a[8:24, 8:24] = 220
+    image_b = np.zeros((32, 32), dtype=np.uint8)
+    image_b[::2, :] = 255
+
+    result = hybrid_image(image_a, image_b, low_cutoff=1, high_cutoff=2)
+
+    assert result.shape == image_a.shape
+    assert result.dtype == np.uint8
+    assert result.min() >= 0 and result.max() <= 255
 
 
 def test_gaussian_noise_is_reproducible_and_does_not_mutate_source() -> None:

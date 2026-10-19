@@ -1,4 +1,14 @@
-const PARAMETER_LABELS = { kernel_size: 'Kernel', sigma: 'Sigma', mean: 'Mean', density: 'Density', salt_probability: 'Salt probability', seed: 'Seed' }
+const PARAMETER_LABELS = {
+  kernel_size: 'Kernel',
+  sigma: 'Sigma',
+  mean: 'Mean',
+  density: 'Density',
+  salt_probability: 'Salt probability',
+  seed: 'Seed',
+  low_cutoff: 'Image 1 low-pass cutoff',
+  high_cutoff: 'Image 2 high-pass cutoff',
+  filter_family: 'Filter family',
+}
 
 export default function ResultCard({ result }) {
   const parameters = Object.entries(result.parameters).filter(([, value]) => value !== null && value !== undefined && value !== '')
