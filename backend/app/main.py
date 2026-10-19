@@ -8,6 +8,7 @@ from .api.routes.noise import router as noise_router
 from .api.routes.edge import router as edge_router
 from .api.routes.histogram import router as histogram_router
 from .api.routes.transform import router as transform_router
+from .api.routes.images import router as images_router
 
 app = FastAPI(title="Computer Vision Task 1 API", version="1.0.0")
 
@@ -24,6 +25,7 @@ app.include_router(filters_router)
 app.include_router(edge_router)
 app.include_router(histogram_router)
 app.include_router(transform_router)
+app.include_router(images_router)
 
 
 @app.get("/api/health")

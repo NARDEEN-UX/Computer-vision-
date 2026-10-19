@@ -12,8 +12,8 @@ from ..algorithms.histogram.histogram import compute_image_histogram
 from .image_service import read_image
 
 
-async def analyze_histogram(upload: UploadFile) -> dict[str, Any]:
-    image = await read_image(upload)
+async def analyze_histogram(upload: UploadFile | None = None, image_id: str | None = None) -> dict[str, Any]:
+    image = await read_image(upload, image_id)
     started = time.perf_counter()
     try:
         result = compute_image_histogram(image)

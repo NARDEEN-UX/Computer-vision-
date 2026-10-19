@@ -20,18 +20,20 @@ router = APIRouter(prefix="/api/filters", tags=["Filters"])
 
 @router.post("/average")
 async def apply_average_filter(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     kernel_size: Annotated[int, Form()] = 3,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     kernel_size = validated_kernel_size(kernel_size)
-    return await run_image_operation(image, average_filter, {"kernel_size": kernel_size})
+    return await run_image_operation(image, average_filter, {"kernel_size": kernel_size}, image_id=image_id)
 
 
 @router.post("/gaussian")
 async def apply_gaussian_filter(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     kernel_size: Annotated[int, Form()] = 3,
     sigma: Annotated[float, Form()] = 1.0,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     kernel_size = validated_kernel_size(kernel_size)
     validated_positive(sigma, "Sigma")
@@ -39,26 +41,29 @@ async def apply_gaussian_filter(
         image,
         gaussian_filter,
         {"kernel_size": kernel_size, "sigma": sigma},
+        image_id=image_id,
     )
 
 
 @router.post("/median")
 async def apply_median_filter(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     kernel_size: Annotated[int, Form()] = 3,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     kernel_size = validated_kernel_size(kernel_size)
-    return await run_image_operation(image, median_filter, {"kernel_size": kernel_size})
+    return await run_image_operation(image, median_filter, {"kernel_size": kernel_size}, image_id=image_id)
 
 
 @router.post("/frequency")
 async def apply_frequency_filter(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     cutoff: Annotated[float, Form()] = 30.0,
     filter_type: Annotated[str, Form()] = "low",
     filter_family: Annotated[str, Form()] = "gaussian",
     mean: Annotated[float, Form()] = 0.0,
     sigma: Annotated[float, Form()] = 30.0,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     if cutoff <= 0:
         raise HTTPException(status_code=422, detail="Cutoff must be greater than zero.")
@@ -72,7 +77,7 @@ async def apply_frequency_filter(
         raise HTTPException(status_code=422, detail="filter_type must be 'low' or 'high'.")
     if normalized_family not in {"ideal", "gaussian"}:
         raise HTTPException(status_code=422, detail="filter_family must be 'ideal' or 'gaussian'.")
-    source = await read_image(image)
+    source = await read_image(image, image_id)
     started = time.perf_counter()
     (
         processed,
@@ -118,16 +123,18 @@ async def apply_frequency_filter(
 
 @router.post("/hybrid")
 async def apply_hybrid_filter(
-    image_a: Annotated[UploadFile, File(...)],
-    image_b: Annotated[UploadFile, File(...)],
+    image_a: Annotated[UploadFile | None, File()] = None,
+    image_b: Annotated[UploadFile | None, File()] = None,
     sigma: Annotated[float, Form()] = 8.0,
     kernel_size: Annotated[int, Form()] = 15,
+    image_a_id: Annotated[str | None, Form()] = None,
+    image_b_id: Annotated[str | None, Form()] = None,
 ):
     validated_positive(sigma, "Sigma")
     kernel_size = validated_kernel_size(kernel_size)
 
-    source_a = await read_image(image_a)
-    source_b = await read_image(image_b)
+    source_a = await read_image(image_a, image_a_id)
+    source_b = await read_image(image_b, image_b_id)
     started = time.perf_counter()
     processed = hybrid_image(source_a, source_b, sigma=sigma, kernel_size=kernel_size)
     elapsed_ms = (time.perf_counter() - started) * 1000

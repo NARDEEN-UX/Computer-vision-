@@ -16,25 +16,28 @@ router = APIRouter(prefix="/api/noise", tags=["Noise"])
 
 @router.post("/gaussian")
 async def apply_gaussian_noise(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     mean: Annotated[float, Form()] = 0.0,
     sigma: Annotated[float, Form()] = 20.0,
     seed: Annotated[int | None, Form()] = None,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     validated_positive(sigma, "Sigma")
     return await run_image_operation(
         image,
         gaussian_noise,
         {"mean": mean, "sigma": sigma, "seed": seed},
+        image_id=image_id,
     )
 
 
 @router.post("/salt-pepper")
 async def apply_salt_pepper_noise(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     density: Annotated[float, Form()] = 0.05,
     salt_probability: Annotated[float, Form()] = 0.5,
     seed: Annotated[int | None, Form()] = None,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     validated_range(density, "Density")
     validated_range(salt_probability, "Salt probability")
@@ -42,4 +45,5 @@ async def apply_salt_pepper_noise(
         image,
         salt_pepper_noise,
         {"density": density, "salt_probability": salt_probability, "seed": seed},
+        image_id=image_id,
     )
