@@ -46,12 +46,7 @@ def _filter_mask(
 def _spectrum_image(transform: np.ndarray, already_shifted: bool = False) -> np.ndarray:
     spectrum = transform if already_shifted else np.fft.fftshift(transform)
     magnitude = np.log1p(np.abs(spectrum))
-    minimum = float(magnitude.min())
-    maximum = float(magnitude.max())
-    if maximum <= minimum:
-        return np.zeros(magnitude.shape, dtype=np.uint8)
-    scaled = (magnitude - minimum) * (255.0 / (maximum - minimum))
-    return np.clip(np.rint(scaled), 0, 255).astype(np.uint8)
+    return _normalize_image(magnitude)
 
 
 def _normalize_image(values: np.ndarray) -> np.ndarray:
@@ -73,6 +68,23 @@ def _signed_image(values: np.ndarray) -> np.ndarray:
     return np.clip(np.rint(scaled), 0, 255).astype(np.uint8)
 
 
+def _apply_frequency_filter(
+    image: np.ndarray,
+    cutoff: float,
+    filter_type: str,
+    filter_family: str,
+    mean: float,
+    sigma: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    grayscale = _as_grayscale(image)
+    transform = np.fft.fft2(grayscale)
+    shifted = np.fft.fftshift(transform)
+    mask = _filter_mask(grayscale.shape, cutoff, filter_type, filter_family, mean, sigma)
+    filtered = shifted * mask
+    restored = np.fft.ifft2(np.fft.ifftshift(filtered)).real.astype(np.float32)
+    return restored, transform, filtered, mask
+
+
 def frequency_filter_details(
     image: np.ndarray,
     cutoff: float = 30.0,
@@ -82,14 +94,10 @@ def frequency_filter_details(
     sigma: float = 30.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return the filtered image and visualizations of its frequency-domain steps."""
-    grayscale = _as_grayscale(image)
-    transform = np.fft.fft2(grayscale)
-    shifted = np.fft.fftshift(transform)
-    mask = _filter_mask(grayscale.shape, cutoff, filter_type, filter_family, mean, sigma)
-    filtered = shifted * mask
-    inverse_shifted = np.fft.ifftshift(filtered)
-    restored = np.fft.ifft2(inverse_shifted)
-    normalized = np.clip(np.rint(restored.real), 0, 255).astype(np.uint8)
+    restored, transform, filtered, mask = _apply_frequency_filter(
+        image, cutoff, filter_type, filter_family, mean, sigma
+    )
+    normalized = np.clip(np.rint(restored), 0, 255).astype(np.uint8)
     spatial_filter = np.fft.ifft2(np.fft.ifftshift(mask)).real
     return (
         normalized,
@@ -98,6 +106,21 @@ def frequency_filter_details(
         _signed_image(spatial_filter),
         np.clip(np.rint(mask * 255.0), 0, 255).astype(np.uint8),
     )
+
+
+def frequency_filter_values(
+    image: np.ndarray,
+    cutoff: float,
+    filter_type: str,
+    filter_family: str = "ideal",
+    mean: float = 0.0,
+    sigma: float = 30.0,
+) -> np.ndarray:
+    """Apply a Fourier filter and preserve signed floating-point values."""
+    restored, _, _, _ = _apply_frequency_filter(
+        image, cutoff, filter_type, filter_family, mean, sigma
+    )
+    return restored
 
 
 def frequency_filter(
@@ -109,4 +132,7 @@ def frequency_filter(
     sigma: float = 30.0,
 ) -> np.ndarray:
     """Apply an ideal or Gaussian Fourier-domain filter."""
-    return frequency_filter_details(image, cutoff, filter_type, filter_family, mean, sigma)[0]
+    restored, _, _, _ = _apply_frequency_filter(
+        image, cutoff, filter_type, filter_family, mean, sigma
+    )
+    return np.clip(np.rint(restored), 0, 255).astype(np.uint8)

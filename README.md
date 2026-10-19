@@ -72,6 +72,7 @@ All processing endpoints accept multipart form data with an `image` file and ret
 | `POST /api/filters/average` | `kernel_size` (3, 5, 7, or 9) |
 | `POST /api/filters/gaussian` | `kernel_size`, `sigma` |
 | `POST /api/filters/median` | `kernel_size` (3, 5, 7, or 9) |
+| `POST /api/filters/hybrid` | `low_cutoff`, `high_cutoff` using ideal Fourier low/high-pass masks |
 | `POST /api/edge/sobel` | `direction` (`magnitude`, `x`, or `y`) |
 | `POST /api/edge/roberts` | `direction` (`magnitude`, `x`, or `y`) |
 | `POST /api/edge/prewitt` | `direction` (`magnitude`, `x`, or `y`) |
@@ -158,4 +159,4 @@ The first working version used the direct mapping `round(CDF[intensity] * 255)`,
 - Added interactive chart channel toggles, linear/log histogram scaling, and responsive before/after layouts.
 - Added backend algorithm/API tests and frontend production-build validation.
 
-Uniform noise; thresholding; FFT/frequency-domain filters; hybrid images; and final report generation remain intentionally excluded until these stages are requested.
+Uniform noise, thresholding, and final report generation remain intentionally excluded until these stages are requested. Frequency-domain filtering and hybrid images are implemented with custom NumPy Fourier masks.

@@ -88,6 +88,23 @@ def test_frequency_api_accepts_ideal_filter_family() -> None:
     assert response.json()["parameters"]["filter_family"] == "ideal"
 
 
+def test_hybrid_api_uses_separate_ideal_frequency_cutoffs() -> None:
+    response = TestClient(app).post(
+        "/api/filters/hybrid",
+        files={"image_a": _grayscale_file(), "image_b": _grayscale_file()},
+        data={"low_cutoff": "1", "high_cutoff": "2"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["parameters"] == {
+        "low_cutoff": 1.0,
+        "high_cutoff": 2.0,
+        "filter_family": "ideal",
+    }
+    assert body["metadata"]["implementation"] == "Custom NumPy ideal Fourier filters"
+
+
 def test_edge_api_returns_grayscale_metadata_and_implementation() -> None:
     client = TestClient(app)
     response = client.post(

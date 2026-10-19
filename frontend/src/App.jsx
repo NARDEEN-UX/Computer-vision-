@@ -84,7 +84,7 @@ const DEFAULTS = {
   'filters/gaussian': { kernel_size: 3, sigma: 1 },
   'filters/median': { kernel_size: 3 },
   'frequency/frequency': { cutoff: 30, filter_type: 'low', filter_family: 'gaussian', mean: 0, sigma: 30 },
-  'hybrid/hybrid': { sigma: 8, kernel_size: 15 },
+  'hybrid/hybrid': { low_cutoff: 1, high_cutoff: 2 },
   'edge/sobel': { direction: 'magnitude' },
   'edge/roberts': { direction: 'magnitude' },
   'edge/prewitt': { direction: 'magnitude' },
@@ -108,7 +108,8 @@ function validate(operation, values) {
   if (operation.name === 'frequency' && Number(values.cutoff) <= 0) return 'Cutoff must be greater than zero.'
   if (operation.name === 'frequency' && Number(values.mean) < 0) return 'Gaussian mean must be zero or greater.'
   if (operation.name === 'frequency' && Number(values.sigma) <= 0) return 'Gaussian sigma must be greater than zero.'
-  if (operation.name === 'hybrid' && Number(values.sigma) <= 0) return 'Sigma must be greater than zero.'
+  if (operation.name === 'hybrid' && Number(values.low_cutoff) <= 0) return 'Low cutoff must be greater than zero.'
+  if (operation.name === 'hybrid' && Number(values.high_cutoff) <= 0) return 'High cutoff must be greater than zero.'
   if (operation.group === 'edge' && operation.name === 'canny' && (Number(values.lower_threshold) < 0 || Number(values.lower_threshold) >= Number(values.upper_threshold))) return 'Lower threshold must be less than upper threshold.'
   if (operation.group === 'transform' && operation.name === 'normalize' && Number(values.max_val) <= Number(values.min_val)) return 'Maximum value must be greater than minimum value.'
   return ''
@@ -268,7 +269,7 @@ export default function App() {
         <p className="operation-description">{operation.description}</p>
         {operation.name === 'hybrid' && (
           <div className="dual-upload-caption">
-            <small>Hybrid image uses two input images: the first provides low-frequency content and the second provides high-frequency detail.</small>
+            <small>Hybrid image uses an ideal low-pass mask on image 1 and an ideal high-pass mask on image 2.</small>
           </div>
         )}
         <ParameterPanel operation={operation} values={values} onChange={updateValue} />

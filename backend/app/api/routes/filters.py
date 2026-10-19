@@ -125,24 +125,33 @@ async def apply_frequency_filter(
 async def apply_hybrid_filter(
     image_a: Annotated[UploadFile | None, File()] = None,
     image_b: Annotated[UploadFile | None, File()] = None,
-    sigma: Annotated[float, Form()] = 8.0,
-    kernel_size: Annotated[int, Form()] = 15,
+    low_cutoff: Annotated[float, Form()] = 30.0,
+    high_cutoff: Annotated[float, Form()] = 30.0,
     image_a_id: Annotated[str | None, Form()] = None,
     image_b_id: Annotated[str | None, Form()] = None,
 ):
-    validated_positive(sigma, "Sigma")
-    kernel_size = validated_kernel_size(kernel_size)
+    validated_positive(low_cutoff, "Low cutoff")
+    validated_positive(high_cutoff, "High cutoff")
 
     source_a = await read_image(image_a, image_a_id)
     source_b = await read_image(image_b, image_b_id)
     started = time.perf_counter()
-    processed = hybrid_image(source_a, source_b, sigma=sigma, kernel_size=kernel_size)
+    processed = hybrid_image(
+        source_a,
+        source_b,
+        low_cutoff=low_cutoff,
+        high_cutoff=high_cutoff,
+    )
     elapsed_ms = (time.perf_counter() - started) * 1000
 
     return {
         "image": encode_png(processed),
         "processing_time_ms": round(elapsed_ms, 3),
-        "parameters": {"sigma": sigma, "kernel_size": kernel_size},
+        "parameters": {
+            "low_cutoff": low_cutoff,
+            "high_cutoff": high_cutoff,
+            "filter_family": "ideal",
+        },
         "metadata": {
             "width": int(processed.shape[1]),
             "height": int(processed.shape[0]),
@@ -151,6 +160,6 @@ async def apply_hybrid_filter(
             "output_image_type": "Grayscale" if processed.ndim == 2 else "RGB",
             "channels": 1 if processed.ndim == 2 else 3,
             "color_convention": "grayscale" if processed.ndim == 2 else "RGB",
-            "implementation": "Custom NumPy",
+            "implementation": "Custom NumPy ideal Fourier filters",
         },
     }
