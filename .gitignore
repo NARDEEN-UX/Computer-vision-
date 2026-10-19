@@ -14,3 +14,6 @@ frontend/dist/
 
 # Environment variables (Crucial for security)
 .env
+
+# Uploaded images are runtime data and must not be committed
+backend/data/uploads/*
