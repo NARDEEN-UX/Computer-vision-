@@ -23,44 +23,58 @@ def _comparison_histograms(original: Any, processed: Any) -> dict[str, Any]:
 
 
 @router.post("/equalize")
-async def equalize(image: Annotated[UploadFile, File(...)]):
+async def equalize(
+    image: Annotated[UploadFile | None, File()] = None,
+    image_id: Annotated[str | None, Form()] = None,
+):
     return await run_image_operation(
         image,
         equalize_image,
         {},
         extras=_comparison_histograms,
+        image_id=image_id,
     )
 
 
 @router.post("/to-gray")
-async def to_gray(image: Annotated[UploadFile, File(...)]):
+async def to_gray(
+    image: Annotated[UploadFile | None, File()] = None,
+    image_id: Annotated[str | None, Form()] = None,
+):
     return await run_image_operation(
         image,
         rgb_to_grayscale,
         {},
         extras=_comparison_histograms,
+        image_id=image_id,
     )
 
 
 @router.post("/to-rgb")
-async def to_rgb(image: Annotated[UploadFile, File(...)]):
+async def to_rgb(
+    image: Annotated[UploadFile | None, File()] = None,
+    image_id: Annotated[str | None, Form()] = None,
+):
     return await run_image_operation(
         image,
         grayscale_to_rgb,
         {},
         extras=_comparison_histograms,
+        image_id=image_id,
     )
 
 
 @router.post("/normalize")
 async def normalize(
-    image: Annotated[UploadFile, File(...)],
+    image: Annotated[UploadFile | None, File()] = None,
     min_val: Annotated[float, Form()] = 0.0,
     max_val: Annotated[float, Form()] = 255.0,
+    image_id: Annotated[str | None, Form()] = None,
 ):
     return await run_image_operation(
         image,
         normalize_image,
         {"min_val": min_val, "max_val": max_val},
         extras=_comparison_histograms,
+        image_id=image_id,
     )

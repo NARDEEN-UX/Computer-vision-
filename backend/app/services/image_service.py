@@ -5,10 +5,15 @@ from __future__ import annotations
 import base64
 import time
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Callable
+from uuid import UUID, uuid4
 
 import numpy as np
 from PIL import Image, UnidentifiedImageError
+
+
+_STORAGE_DIR = Path(__file__).resolve().parents[2] / "data" / "uploads"
 from fastapi import HTTPException, UploadFile
 
 
@@ -40,16 +45,52 @@ def _decode_preserving_channels(data: bytes) -> np.ndarray:
         return rgb
 
 
-async def read_image(upload: UploadFile) -> np.ndarray:
+async def _read_upload_bytes(upload: UploadFile) -> bytes:
     if upload.content_type and not upload.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Please upload a valid image file.")
     data = await upload.read()
     if not data:
         raise HTTPException(status_code=400, detail="The uploaded image is empty.")
+    return data
+
+
+def _decode_image_bytes(data: bytes) -> np.ndarray:
     try:
         return _decode_preserving_channels(data)
     except (UnidentifiedImageError, OSError) as exc:
         raise HTTPException(status_code=400, detail="The uploaded file is not a readable image.") from exc
+
+
+async def store_image(upload: UploadFile) -> dict[str, Any]:
+    data = await _read_upload_bytes(upload)
+    _decode_image_bytes(data)
+    image_id = str(uuid4())
+    _STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    (_STORAGE_DIR / f"{image_id}.bin").write_bytes(data)
+    return {"image_id": image_id}
+
+
+def _read_stored_image(image_id: str) -> np.ndarray:
+    try:
+        requested_id = str(UUID(image_id))
+    except (ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=400, detail="The stored image ID is invalid.") from exc
+
+    stored_image_path = _STORAGE_DIR / f"{requested_id}.bin"
+    if not stored_image_path.exists():
+        raise HTTPException(status_code=404, detail="The stored image is no longer available. Upload it again.")
+    try:
+        return _decode_image_bytes(stored_image_path.read_bytes())
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="The stored image cannot be read.") from exc
+
+
+async def read_image(upload: UploadFile | None = None, image_id: str | None = None) -> np.ndarray:
+    if image_id:
+        return _read_stored_image(image_id)
+    if upload is None:
+        raise HTTPException(status_code=400, detail="Upload an image or provide a stored image ID.")
+    return _decode_image_bytes(await _read_upload_bytes(upload))
 
 
 def encode_png(image: np.ndarray) -> str:
@@ -65,13 +106,14 @@ def encode_png(image: np.ndarray) -> str:
 
 
 async def run_image_operation(
-    upload: UploadFile,
+    upload: UploadFile | None,
     operation: Callable[..., np.ndarray],
     parameters: dict[str, Any],
     implementation: str = "Custom NumPy",
     extras: Callable[[np.ndarray, np.ndarray], dict[str, Any]] | None = None,
+    image_id: str | None = None,
 ) -> dict[str, Any]:
-    image = await read_image(upload)
+    image = await read_image(upload, image_id)
     started = time.perf_counter()
     try:
         processed = operation(image, **parameters)

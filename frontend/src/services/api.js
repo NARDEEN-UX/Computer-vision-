@@ -2,13 +2,27 @@ import axios from 'axios'
 
 const client = axios.create({ baseURL: 'http://localhost:8000' })
 
-export async function processImage(operation, file, parameters, secondaryFile = null) {
+export async function uploadImage(file) {
+  if (!file) throw new Error('An image is required.')
+  const data = new FormData()
+  data.append('image', file)
+  const response = await client.post('/api/images/upload', data)
+  return response.data
+}
+
+export async function processImage(operation, file, parameters, secondaryFile = null, imageId = null, secondaryImageId = null) {
   const data = new FormData()
   if (operation.name === 'hybrid') {
-    if (!file) throw new Error('Primary image is required for hybrid processing.')
-    data.append('image_a', file)
-    data.append('image_b', secondaryFile || file)
+    if (imageId) data.append('image_a_id', imageId)
+    else if (file) data.append('image_a', file)
+    else throw new Error('Primary image is required for hybrid processing.')
+    if (secondaryImageId) data.append('image_b_id', secondaryImageId)
+    else if (secondaryFile || file) data.append('image_b', secondaryFile || file)
+    else throw new Error('Secondary image is required for hybrid processing.')
+  } else if (imageId) {
+    data.append('image_id', imageId)
   } else {
+    if (!file) throw new Error('An image is required.')
     data.append('image', file)
   }
   Object.entries(parameters).forEach(([key, value]) => {

@@ -4,7 +4,7 @@ import ParameterPanel from './components/ParameterPanel'
 import ResultCard from './components/ResultCard'
 import FrequencyResultCard from './components/FrequencyResultCard'
 import HistogramCharts from './components/HistogramCharts'
-import { dataUrlToFile, processImage } from './services/api'
+import { dataUrlToFile, processImage, uploadImage } from './services/api'
 
 const OPERATION_GROUPS = [
   {
@@ -131,8 +131,10 @@ function HistogramSourceImages({ originalUrl, originalName, workingUrl, workingL
 
 export default function App() {
   const [file, setFile] = useState(null)
+  const [imageId, setImageId] = useState('')
   const [originalUrl, setOriginalUrl] = useState('')
   const [secondaryFile, setSecondaryFile] = useState(null)
+  const [secondaryImageId, setSecondaryImageId] = useState('')
   const [secondaryUrl, setSecondaryUrl] = useState('')
   const [workingFile, setWorkingFile] = useState(null)
   const [workingUrl, setWorkingUrl] = useState('')
@@ -155,7 +157,7 @@ export default function App() {
     let cancelled = false
     const timer = setTimeout(async () => {
       try {
-        const response = await processImage(operation, file, values)
+        const response = await processImage(operation, file, values, null, imageId)
         if (!cancelled) setResult({ ...response, label: operation.label, sourceLabel: 'Original image', kind: 'frequency' })
       } catch (requestError) {
         if (!cancelled) {
@@ -168,22 +170,38 @@ export default function App() {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [file, operation, values.cutoff, values.filter_type, values.filter_family, values.mean, values.sigma])
+  }, [file, imageId, operation, values.cutoff, values.filter_type, values.filter_family, values.mean, values.sigma])
 
-  function chooseFile(nextFile) {
+  async function chooseFile(nextFile) {
     setError('')
     if (!nextFile) return
     if (!nextFile.type.startsWith('image/')) return setError('Please choose a PNG or JPEG image.')
     setFile(nextFile); setOriginalUrl(URL.createObjectURL(nextFile)); setWorkingFile(null); setWorkingUrl(''); setWorkingLabel('Original image'); setSourceMode('original'); setResult(null)
+    try {
+      const stored = await uploadImage(nextFile)
+      setImageId(stored.image_id)
+    } catch (requestError) {
+      setImageId('')
+      const detail = requestError.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'The image could not be stored on the server.')
+    }
   }
 
-  function chooseSecondaryFile(nextFile) {
+  async function chooseSecondaryFile(nextFile) {
     setError('')
     if (!nextFile) return
     if (!nextFile.type.startsWith('image/')) return setError('Please choose a PNG or JPEG image.')
     setSecondaryFile(nextFile)
     setSecondaryUrl(URL.createObjectURL(nextFile))
     setResult(null)
+    try {
+      const stored = await uploadImage(nextFile)
+      setSecondaryImageId(stored.image_id)
+    } catch (requestError) {
+      setSecondaryImageId('')
+      const detail = requestError.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'The secondary image could not be stored on the server.')
+    }
   }
 
   function chooseOperation(nextOperation) {
@@ -204,9 +222,9 @@ export default function App() {
   async function apply() {
     setError('')
     if (operation.name === 'hybrid') {
-      if (!file) return setError('Upload the primary image for hybrid processing.')
-      if (!secondaryFile) return setError('Upload the secondary image for hybrid processing.')
-    } else if (!selectedSource) {
+      if (!file || !imageId) return setError('Upload the primary image for hybrid processing.')
+      if (!secondaryFile || !secondaryImageId) return setError('Upload the secondary image for hybrid processing.')
+    } else if (!selectedSource || (sourceMode === 'original' && !imageId)) {
       return setError('Upload an image first.')
     }
     const validationError = validate(operation, values)
@@ -214,8 +232,8 @@ export default function App() {
     setLoading(true)
     try {
       const response = operation.name === 'hybrid'
-        ? await processImage(operation, file, values, secondaryFile)
-        : await processImage(operation, selectedSource, values)
+        ? await processImage(operation, file, values, secondaryFile, imageId, secondaryImageId)
+        : await processImage(operation, selectedSource, values, null, sourceMode === 'original' ? imageId : null)
       if (operation.group === 'histogram') {
         setResult({ ...response, label: operation.label, sourceLabel: selectedSourceLabel, kind: 'histogram' })
         return
