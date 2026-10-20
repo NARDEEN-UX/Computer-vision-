@@ -41,6 +41,12 @@ def test_filters_support_grayscale_and_rgb() -> None:
         assert operation(rgb).dtype == np.uint8
 
 
+def test_median_filter_orders_window_values_without_numpy_median() -> None:
+    image = np.array([[0, 255, 0], [255, 128, 255], [0, 255, 0]], dtype=np.uint8)
+    result = median_filter(image, 3)
+    assert result[1, 1] == 128
+
+
 def test_gaussian_kernel_is_symmetric_and_normalized() -> None:
     kernel = gaussian_kernel(5, 1.5)
     assert np.isclose(kernel.sum(), 1.0)
