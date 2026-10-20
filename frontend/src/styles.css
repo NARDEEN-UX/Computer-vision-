@@ -56,7 +56,9 @@ h1 { margin: 13px 0 15px; font-family: Georgia, "Times New Roman", serif; font-s
 .source-control { margin: 5px 0 17px; padding: 13px; border: 1px solid #dfe3dc; border-radius: 10px; background: #f3f6f1; }
 .field-caption { display: block; margin-bottom: 8px; color: #53645a; font-size: .74rem; font-weight: 800; }
 .source-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 7px; }
+.source-options-three { grid-template-columns: repeat(3, 1fr); }
 .source-option { padding: 7px; border: 1px solid #d0d7ce; border-radius: 6px; background: #fff; color: #637169; font-size: .73rem; cursor: pointer; }
+.source-option:disabled { cursor: not-allowed; opacity: .45; }
 .source-option.active { border-color: #73937c; background: #e4ece5; color: #2d4b38; font-weight: 800; }
 .error-message { margin: 12px 0; padding: 10px 12px; border-radius: 8px; background: #fff0ed; color: #a23f2d; font-size: .8rem; }
 .apply-button { width: 100%; margin-top: 4px; padding: 13px 16px; border: 0; border-radius: 9px; background: #20332c; color: #fff; font-weight: 800; cursor: pointer; transition: background .15s ease, transform .15s ease; }
@@ -111,11 +113,12 @@ h3 { margin: 5px 0 0; color: #26372f; font-size: .96rem; font-weight: 780; overf
 .chart-axis { stroke: #87938a; stroke-width: 1; }
 .chart-grid { stroke: #e4e9e3; stroke-width: 1; }
 .chart-tick, .chart-axis-label { fill: #78857c; font-size: 10px; }
-.comparison-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.comparison-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; clear: both; margin-top: 18px; }
 @media (max-width: 940px) { .lab-layout { grid-template-columns: 1fr; } .control-panel { order: 0; } .results-area { order: 1; } }
 @media (max-width: 1100px) { .image-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .page-shell { padding: 25px 16px 40px; } .hero { align-items: start; flex-direction: column; gap: 20px; padding-bottom: 30px; } .scope-chip { width: 100%; } .image-grid { grid-template-columns: 1fr; } .control-panel { padding: 18px; } }
 @media (max-width: 900px) { .comparison-charts { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .chart-heading { flex-direction: column; } .chart-tools { justify-content: flex-start; } }
 @media (max-width: 620px) { .frequency-view-grid { grid-template-columns: 1fr; padding: 0 12px 12px; } .frequency-result-heading { padding: 14px; } }
 @media (max-width: 900px) { .histogram-analysis-layout { grid-template-columns: 1fr; } .histogram-source-images { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .histogram-source-images { grid-template-columns: 1fr; } }

@@ -140,7 +140,8 @@ export default function App() {
   const [workingFile, setWorkingFile] = useState(null)
   const [workingUrl, setWorkingUrl] = useState('')
   const [workingLabel, setWorkingLabel] = useState('Original image')
-  const [previousResult, setPreviousResult] = useState(null)
+  const [outputOne, setOutputOne] = useState(null)
+  const [outputTwo, setOutputTwo] = useState(null)
   const [sourceMode, setSourceMode] = useState('original')
   const [selectedCategory, setSelectedCategory] = useState('noise')
   const [operationKey, setOperationKey] = useState('noise/gaussian')
@@ -151,8 +152,17 @@ export default function App() {
 
   const operation = useMemo(() => OPERATIONS.find((item) => operationId(item) === operationKey), [operationKey])
   const activeGroup = useMemo(() => OPERATION_GROUPS.find((group) => group.key === selectedCategory) ?? OPERATION_GROUPS[0], [selectedCategory])
-  const selectedSource = sourceMode === 'latest' && workingFile ? workingFile : file
-  const selectedSourceLabel = sourceMode === 'latest' && workingFile ? workingLabel : 'Original image'
+  const usesComparisonOutputs = operation.group !== 'histogram' && operation.name !== 'frequency' && operation.name !== 'hybrid'
+  const selectedSource = sourceMode === 'output-1' && outputOne
+    ? dataUrlToFile(outputOne.image, 'output-1.png')
+    : sourceMode === 'output-2' && outputTwo
+      ? dataUrlToFile(outputTwo.image, 'output-2.png')
+      : file
+  const selectedSourceLabel = sourceMode === 'output-1' && outputOne
+    ? 'Output 1'
+    : sourceMode === 'output-2' && outputTwo
+      ? 'Output 2'
+      : 'Original'
 
   useEffect(() => {
     if (operation.name !== 'frequency' || !file) return undefined
@@ -178,7 +188,7 @@ export default function App() {
     setError('')
     if (!nextFile) return
     if (!nextFile.type.startsWith('image/')) return setError('Please choose a PNG or JPEG image.')
-    setFile(nextFile); setOriginalUrl(URL.createObjectURL(nextFile)); setWorkingFile(null); setWorkingUrl(''); setWorkingLabel('Original image'); setPreviousResult(null); setSourceMode('original'); setResult(null)
+    setFile(nextFile); setOriginalUrl(URL.createObjectURL(nextFile)); setWorkingFile(null); setWorkingUrl(''); setWorkingLabel('Original image'); setOutputOne(null); setOutputTwo(null); setSourceMode('original'); setResult(null)
     try {
       const stored = await uploadImage(nextFile)
       setImageId(stored.image_id)
@@ -240,11 +250,21 @@ export default function App() {
         setResult({ ...response, label: operation.label, sourceLabel: selectedSourceLabel, kind: 'histogram' })
         return
       }
-      setPreviousResult(workingUrl
-        ? { image: workingUrl, label: workingLabel }
-        : null)
-      setWorkingFile(dataUrlToFile(response.image, `${operation.name}-result.png`)); setWorkingUrl(response.image); setWorkingLabel(operation.label); setSourceMode('latest')
-      setResult({ ...response, label: operation.label, sourceLabel: selectedSourceLabel })
+      const processedResult = { ...response, label: operation.label, sourceLabel: selectedSourceLabel }
+      const targetSlot = sourceMode === 'output-1'
+        ? 'output-1'
+        : sourceMode === 'output-2'
+          ? 'output-2'
+          : outputOne
+            ? 'output-2'
+            : 'output-1'
+      if (targetSlot === 'output-1') {
+        setOutputOne(processedResult)
+      } else {
+        setOutputTwo(processedResult)
+      }
+      setWorkingFile(dataUrlToFile(response.image, `${operation.name}-result.png`)); setWorkingUrl(response.image); setWorkingLabel(operation.label); setSourceMode(targetSlot)
+      setResult(processedResult)
     } catch (requestError) {
       const detail = requestError.response?.data?.detail
       setError(typeof detail === 'string' ? detail : 'The image could not be processed. Check that the backend is running.')
@@ -277,11 +297,11 @@ export default function App() {
           </div>
         )}
         <ParameterPanel operation={operation} values={values} onChange={updateValue} />
-        {workingFile && operation.name !== 'hybrid' && <div className="source-control"><span className="field-caption">Process this operation on</span><div className="source-options"><button type="button" className={sourceMode === 'original' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('original')}>Original</button><button type="button" className={sourceMode === 'latest' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('latest')}>Latest result</button></div><small>{selectedSourceLabel}</small></div>}
+        {file && operation.name !== 'hybrid' && <div className="source-control"><span className="field-caption">Apply this operation to</span><div className="source-options source-options-three"><button type="button" className={sourceMode === 'original' ? 'source-option active' : 'source-option'} onClick={() => setSourceMode('original')}>Original</button><button type="button" className={sourceMode === 'output-1' ? 'source-option active' : 'source-option'} disabled={!outputOne} onClick={() => setSourceMode('output-1')}>Output 1</button><button type="button" className={sourceMode === 'output-2' ? 'source-option active' : 'source-option'} disabled={!outputTwo} onClick={() => setSourceMode('output-2')}>Output 2</button></div><small>Selected input: {selectedSourceLabel}</small></div>}
         {error && <div className="error-message" role="alert">{error}</div>}
         <button className="apply-button" disabled={loading} onClick={apply}>{loading ? 'Processing…' : 'Run operation'}</button>
       </aside>
-      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div>{result?.kind === 'histogram' ? <div className="histogram-analysis-layout"><HistogramSourceImages originalUrl={originalUrl} originalName={file?.name} workingUrl={workingUrl} workingLabel={workingLabel} selectedSourceLabel={result.sourceLabel} /><HistogramCharts result={result} /></div> : result?.kind === 'frequency' ? <FrequencyResultCard result={result} inputImage={originalUrl} /> : <div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Original</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{operation.name === 'hybrid' && secondaryUrl ? <article className="image-card"><div className="result-heading"><div><span className="eyebrow">Secondary</span><h3>{secondaryFile ? secondaryFile.name : 'Second image input'}</h3></div></div><img src={secondaryUrl} alt="Secondary hybrid input" /><div className="image-caption">High-frequency detail source</div></article> : operation.name !== 'hybrid' ? <article className="image-card">{previousResult ? <><div className="result-heading"><div><span className="eyebrow">Output 1</span><h3>{previousResult.label}</h3></div></div><img src={previousResult.image} alt={`${previousResult.label} result`} /><div className="image-caption">Previous processed image</div></> : <div className="empty-result"><span>02</span><h2>Output 1</h2><p>Run another operation to compare an earlier processed image.</p></div>}</article> : null}{result ? <ResultCard result={result} /> : <div className="empty-result"><span>03</span><h2>Output 2</h2><p>Run a method to inspect the result</p></div>}</div>}{result?.histograms && <div className="comparison-charts"><HistogramCharts result={result.histograms.before} title={`Before ${result.label.toLowerCase()}`} /><HistogramCharts result={result.histograms.after} title={`After ${result.label.toLowerCase()}`} /></div>}{workingUrl && result && result.kind !== 'histogram' && result.kind !== 'frequency' && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
+      <section className="results-area"><div className="results-header"><div className="step-heading"><span className="step-number">04</span><div><span className="section-label">Result</span><h2>Visual comparison</h2></div></div>{result && <span className="result-status">Ready · {result.processing_time_ms} ms</span>}</div>{result?.kind === 'histogram' ? <div className="histogram-analysis-layout"><HistogramSourceImages originalUrl={originalUrl} originalName={file?.name} workingUrl={workingUrl} workingLabel={workingLabel} selectedSourceLabel={result.sourceLabel} /><HistogramCharts result={result} /></div> : result?.kind === 'frequency' ? <FrequencyResultCard result={result} inputImage={originalUrl} /> : <div className="image-grid"><article className="image-card"><div className="result-heading"><div><span className="eyebrow">Original</span><h3>{file ? file.name : 'No image selected'}</h3></div></div>{originalUrl ? <img src={originalUrl} alt="Original uploaded image" /> : <div className="empty-image">Upload an image to begin</div>}<div className="image-caption">Original uploaded image</div></article>{operation.name === 'hybrid' && secondaryUrl ? <article className="image-card"><div className="result-heading"><div><span className="eyebrow">Secondary</span><h3>{secondaryFile ? secondaryFile.name : 'Second image input'}</h3></div></div><img src={secondaryUrl} alt="Secondary hybrid input" /><div className="image-caption">High-frequency detail source</div></article> : usesComparisonOutputs ? outputOne ? <ResultCard result={outputOne} outputLabel="Output 1" /> : <div className="empty-result"><span>02</span><h2>Output 1</h2><p>Run an operation to create the first output.</p></div> : null}{usesComparisonOutputs ? outputTwo ? <ResultCard result={outputTwo} outputLabel="Output 2" /> : <div className="empty-result"><span>03</span><h2>Output 2</h2><p>Run a second operation to compare its output.</p></div> : operation.name === 'hybrid' ? result ? <ResultCard result={result} outputLabel="Output 2" /> : <div className="empty-result"><span>03</span><h2>Output 2</h2><p>Run a method to inspect the result</p></div> : null}</div>}{result?.histograms && <div className="comparison-charts"><HistogramCharts result={result.histograms.before} title={`Before ${result.label.toLowerCase()}`} /><HistogramCharts result={result.histograms.after} title={`After ${result.label.toLowerCase()}`} /></div>}{workingUrl && result && result.kind !== 'histogram' && result.kind !== 'frequency' && <div className="working-strip"><span className="eyebrow">Current working image</span><strong>{workingLabel}</strong><span>Next filters can use this result as their input.</span></div>}</section>
     </section>
   </main>
 }
